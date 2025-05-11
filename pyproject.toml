@@ -24,6 +24,12 @@ classifiers = [
 dependencies = ["attrs>=24.2.0", "cattrs>=24.1.1"]
 dynamic = ["version"]
 
+[project.optional-dependencies]
+dev = [
+    "pytest",
+]
+
+
 [project.scripts]
 btrup = "btrup:main"
 
