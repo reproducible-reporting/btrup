@@ -1,0 +1,3 @@
+# Ensure changes to these dependencies are reflected in pyproject.toml
+attrs==24.2.0
+cattrs==24.1.1
