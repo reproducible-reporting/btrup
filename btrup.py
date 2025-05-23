@@ -525,9 +525,7 @@ def parse_suffix(name: str, prefix: str, datetime_format: str) -> datetime:
     return datetime.strptime(name[len(prefix) :], datetime_format)
 
 
-def run(
-    cmd: list[str], dry_run: bool = False, check: bool = True, capture: bool = False, **kwargs
-) -> str:
+def run(cmd: list[str], dry_run: bool = False, capture: bool = False, **kwargs) -> str:
     """Print and run a command."""
     cmd_info = " ".join(cmd)
     if "cwd" in kwargs:
@@ -546,7 +544,7 @@ def run(
         kwargs["universal_newlines"] = True
     if capture:
         kwargs["capture_output"] = True
-    cp = subprocess.run(cmd, check=True, **kwargs)
+    cp = subprocess.run(cmd, **kwargs)  # noqa: PLW1510
     return cp.stdout or ""
 
 
