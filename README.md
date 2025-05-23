@@ -121,7 +121,7 @@ you can write a shell script that calls BtrUp with the desired arguments,
 and then add this shell script to the crontab of the backup account.
 
 A more modern solution is to create a systemd timer and service.
-The instructions below should be executed as root.
+The instructions below should be executed **as root**.
 
 Start by creating a `backup` user that will run the backup process:
 
@@ -163,7 +163,7 @@ Description=Periodic backup with BtrUp
 [Service]
 Type=oneshot
 User=backup
-ExecStart="/usr/local/bin/btrup /etc/btrup/config.toml"
+ExecStart=/usr/local/bin/btrup /etc/btrup/config.toml
 AmbientCapabilities=CAP_DAC_READ_SEARCH
 ```
 
