@@ -9,16 +9,16 @@ on:
       - '**'
     paths:
       # ... and only if relevant files have changed.
-      - stepup/**
-      - tests/**
+      - btrup.py
+      - test_btrup.py
       - pyproject.toml
       - .github/workflows/pytest.yaml
   pull_request:
     # Run tests on pull requests ...
     paths:
       # ... only if relevant files have changed.
-      - stepup/**
-      - tests/**
+      - btrup.py
+      - test_btrup.py
       - pyproject.toml
       - .github/workflows/pytest.yaml
 
