@@ -21,7 +21,7 @@ sed -n "/## \[${VERSION}\]/, /## /{ /##/!p }" docs/changelog.md > notes.md
 
 # Add a link to the release notes
 URL="https://${OWNER}.github.io/${SLUG}/${MACRO_MESO}/changelog/#${TAG}"
-echo "See [docs/changelog/#${TAG}](${URL}) for more details." >> notes.md
+# echo "See [docs/changelog/#${TAG}](${URL}) for more details." >> notes.md
 
 # Remove leading and trailing empty lines
 sed -e :a -e '/./,$!d;/^\n*$/{$d;N;};/\n$/ba' -i notes.md
