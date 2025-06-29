@@ -45,17 +45,17 @@ def select_relevant(
 ) -> list[datetime]:
     """Determine which from the available datetimes are relevant.
 
-    The time axis is divded into bins of width `step` starting from `origin`.
+    The time axis is divided into bins of width `step` starting from `origin`.
     All available datetimes are then mapped into bins.
     Only datetimes from the count most recent bins are kept.
-    If there are multiple datetimes wthin one bin, the oldest datetime is kept.
+    If there are multiple datetimes within one bin, the oldest datetime is kept.
 
     Parameters
     ----------
     available
         A list of datetime objects.
     origin
-        The origin of the time axis used to descretize time into bins.
+        The origin of the time axis used to discretize time into bins.
     interval
         The width of the bins on the time axis.
     amount
@@ -87,7 +87,7 @@ def grandfatherson(
     available
         A list of datetime objects.
     origin
-        The origin of the time axis used to descretize time into bins.
+        The origin of the time axis used to discretize time into bins.
     keeps
         A list of tuples, each containing an interval and an amount of datetimes to keep.
 
@@ -249,7 +249,7 @@ class Config:
         default=datetime(2024, 1, 1, 3, 55, 0),
         converter=attrs.Converter(convert_time_origin, takes_self=True),
     )
-    """Origin of the time axis used to descretize time into bins."""
+    """Origin of the time axis used to discretize time into bins."""
 
 
 def main(argv: list[str] | None = None):
