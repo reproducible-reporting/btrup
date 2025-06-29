@@ -369,14 +369,22 @@ def parse_subvolumes(output: str, prefix: str, datetime_format: str) -> dict[dat
 
 def main_borg(config: Config, args: argparse.Namespace, snapshots: dict[datetime, str]):
     """Main Borg part of the program."""
-    # Not all snapshots have to be backed up.
-    dts_prune = grandfatherson(
+    # Get the list of snapshots to keep for borg backup
+    dts_keep = grandfatherson(
         list(snapshots),
         config.time_origin,
         [(keep.interval, keep.amount) for keep in config.keeps if keep.backup],
-    )[1]
-    for dt_prune in dts_prune:
-        del snapshots[dt_prune]
+    )[0]
+
+    # If the latest snapshot is not in the keep list, do not run Borg.
+    last_snapshot = max(snapshots)
+    if max(snapshots) not in dts_keep:
+        LOGGER.info(f"Skipping borg, snapshot not selected for backup: ({last_snapshot})")
+        LOGGER.info(f"Most recent snapshot selected for backup: {max(dts_keep)}")
+        return
+
+    # Filter snapshots, only those in keep list. (prune list is not complete.)
+    snapshots = {dt: subvol for dt, subvol in snapshots.items() if dt in dts_keep}
 
     # Backup the selected snapshots to every Borg repository.
     env = config.borg.env
