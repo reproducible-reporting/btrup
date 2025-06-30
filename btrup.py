@@ -225,9 +225,11 @@ class BorgConfig:
     """Extra arguments for all borg commands in list form."""
 
 
-def convert_time_origin(value: str | datetime, obj: "Config") -> datetime:
+def convert_time_origin(value: str | datetime, obj: attrs.AttrsInstance) -> datetime:
     if isinstance(value, datetime):
         return value
+    if not isinstance(obj, Config):
+        raise TypeError(f"Expected Config instance, got {type(obj)}")
     return datetime.strptime(value, obj.datetime_format)
 
 
