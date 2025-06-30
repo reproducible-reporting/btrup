@@ -8,6 +8,10 @@ and this project adheres to [Effort-based Versioning](https://jacobtomlinson.dev
 
 (no changes yet)
 
+## [1.0.2] - 2025-06-30
+
+Fix bug triggered when Borg is not configured.
+
 ## [1.0.1] - 2025-06-29
 
 This is a minor bugfix release, mainly addressing redundant borg calls.
