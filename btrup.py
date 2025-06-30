@@ -269,8 +269,9 @@ def main(argv: list[str] | None = None):
     # Work on the Btrfs part
     snapshots = main_btrfs(config, args)
 
-    # Work on the Borg part
-    main_borg(config, args, snapshots)
+    if len(snapshots) > 0:
+        # Work on the Borg part
+        main_borg(config, args, snapshots)
 
 
 def main_btrfs(config: Config, args: argparse.Namespace) -> dict[datetime, str]:
@@ -375,6 +376,11 @@ def main_borg(config: Config, args: argparse.Namespace, snapshots: dict[datetime
         config.time_origin,
         [(keep.interval, keep.amount) for keep in config.keeps if keep.backup],
     )[0]
+
+    # Check if there is anything to keep.
+    if len(dts_keep) == 0:
+        LOGGER.info("No snapshots selected for backup, skipping Borg.")
+        return
 
     # If the latest snapshot is not in the keep list, do not run Borg.
     last_snapshot = max(snapshots)
