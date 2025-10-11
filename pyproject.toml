@@ -36,7 +36,7 @@ btrup = "btrup:main"
 [project.urls]
 Documentation = "https://github.com/reproducible-reporting/btrup/"
 Issues = "https://github.com/reproducible-reporting/btrup/issues"
-Source = "https://github.com/reproducible-reporting/btrupt/"
+Source = "https://github.com/reproducible-reporting/btrup/"
 Changelog = "https://github.com/reproducible-reporting/btrup/blob/main/CHANGELOG.md"
 
 [tool.setuptools]
