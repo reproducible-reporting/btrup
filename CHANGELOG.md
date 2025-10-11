@@ -38,5 +38,6 @@ It can now run as a non-root user with a limited configuration of `sudoers`.
 - More documentation
 
 [Unreleased]: https://github.com/reproducible-reporting/btrup
+[1.0.2]: https://github.com/reproducible-reporting/btrup/releases/tag/v1.0.2
 [1.0.1]: https://github.com/reproducible-reporting/btrup/releases/tag/v1.0.1
 [1.0.0]: https://github.com/reproducible-reporting/btrup/releases/tag/v1.0.0
