@@ -17,7 +17,7 @@ else
 fi
 
 # Extract the release notes from the changelog
-sed -n "/## \[${VERSION}\]/, /## /{ /##/!p }" docs/changelog.md > notes.md
+sed -n "/## \[${VERSION}\]/, /## /{ /##/!p }" CHANGELOG.md > notes.md
 
 # Add a link to the release notes
 URL="https://${OWNER}.github.io/${SLUG}/${MACRO_MESO}/changelog/#${TAG}"
