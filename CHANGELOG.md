@@ -1,3 +1,5 @@
+<!-- markdownlint-disable no-duplicate-heading -->
+
 # Changelog
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
@@ -6,13 +8,31 @@ and this project adheres to [Effort-based Versioning](https://jacobtomlinson.dev
 
 ## [Unreleased]
 
-(no changes yet)
+Bug fixes and security improvements.
+
+### Changed
+
+- Renamed config key `btrfs.snapshot_mnt` to `btrfs.root_mnt`
+  to better reflect its purpose as the mount point of the Btrfs root volume.
+  This means that config files must be updated accordingly.
+
+### Fixed
+
+- Fix typos.
+- Hardcode paths to `btrfs` and `borg` binaries for security reasons.
+- Fix and document `sudoers` configuration to allow mounting and unmounting
+  Btrfs subvolumes when using Borg backup functionality.
+- Minor robustness improvements.
 
 ## [1.0.2] - 2025-06-30
+
+### Fixed
 
 Fix bug triggered when Borg is not configured.
 
 ## [1.0.1] - 2025-06-29
+
+### Fixed
 
 This is a minor bugfix release, mainly addressing redundant borg calls.
 

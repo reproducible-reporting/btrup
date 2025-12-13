@@ -27,7 +27,6 @@ import argparse
 import logging
 import os
 import shlex
-import shutil
 import subprocess
 import sys
 import tomllib
@@ -66,13 +65,15 @@ def select_relevant(
     relevant
         The relevant datetimes.
     """
+    if amount < 0:
+        raise ValueError("Amount must be non-negative")
     bins = {}
     for dt in available:
         bin_idx = (dt - origin) // interval
         bins.setdefault(bin_idx, dt)
         bins[bin_idx] = min(bins[bin_idx], dt)
     bins = sorted(bins.values())
-    return bins[-amount:]
+    return bins[-amount:] if amount > 0 else []
 
 
 def grandfatherson(
@@ -171,23 +172,26 @@ class BtrfsConfig:
     source_path: str = attrs.field()
     """Path of the mounted Btrfs volume to take snapshots from."""
 
-    device: str = attrs.field(init=False, default="")
-    """Device of the Btrfs volume."""
-
-    source_volume: str = attrs.field(init=False, default="")
-    """Btrfs volume corresponding to the source path."""
-
     prefix: str = attrs.field()
     """Prefix for the snapshot subvolumes, timestamp is appended."""
 
-    snapshot_mnt: str = attrs.field()
-    """Path where the snapshot subvolumes will be mounted."""
+    root_mnt: str = attrs.field()
+    """Path where the Btrfs root volume is mounted."""
+
+    binary: str = attrs.field(default="/usr/bin/btrfs")
+    """The absolute path to the Btrfs binary."""
 
     pre: list[str] = attrs.field(factory=list, converter=list)
     """Commands to run before creating a snapshot."""
 
     post: list[str] = attrs.field(factory=list, converter=list)
     """Commands to run after creating a snapshot."""
+
+    device: str = attrs.field(init=False, default="")
+    """Device of the Btrfs volume."""
+
+    source_volume: str = attrs.field(init=False, default="")
+    """Btrfs volume corresponding to the source path."""
 
 
 def find_source(mounts: str, path: str) -> tuple[str, str]:
@@ -209,6 +213,9 @@ def find_source(mounts: str, path: str) -> tuple[str, str]:
 
 @attrs.define
 class BorgConfig:
+    binary: str = attrs.field(default="/usr/bin/borg")
+    """The absolute path to the Borg binary."""
+
     prefix: str = attrs.field(default="backup.")
     """Prefix for the Borg archives."""
 
@@ -285,7 +292,9 @@ def main_btrfs(config: Config, args: argparse.Namespace) -> dict[datetime, str]:
         )
 
     # Get existing snapshot
-    output = run(["sudo", get_brfs(), "subvolume", "list", config.btrfs.source_path], capture=True)
+    output = run(
+        ["sudo", config.btrfs.binary, "subvolume", "list", config.btrfs.source_path], capture=True
+    )
     snapshots = parse_subvolumes(output, config.btrfs.prefix, config.datetime_format)
 
     # Determine if a snapshot already exists in the current keep intervals.
@@ -300,21 +309,16 @@ def main_btrfs(config: Config, args: argparse.Namespace) -> dict[datetime, str]:
             [(keep.interval, keep.amount) for keep in config.keeps],
         )
         if new_dt in keep_dts:
-            create_btrfs_snapshot(config, new_subvol, args.dry_run)
+            try:
+                create_btrfs_snapshot(config, new_subvol, args.dry_run)
+            except:
+                del snapshots[new_dt]
+                raise
         else:
             del snapshots[new_dt]
             prune_dts.discard(new_dt)
         prune_old_btrfs_snapshots(config, prune_dts, snapshots, args.dry_run)
     return snapshots
-
-
-def get_brfs():
-    """Get the fully qualified path to Btrfs."""
-    # For security reasons we don't want to use `sudo` with `PATH`.
-    btrfs = shutil.which("btrfs")
-    if btrfs is None:
-        raise FileNotFoundError("Could not find 'btrfs' in PATH")
-    return btrfs
 
 
 def create_btrfs_snapshot(config: Config, new_subvol: str, dry_run: bool):
@@ -328,12 +332,12 @@ def create_btrfs_snapshot(config: Config, new_subvol: str, dry_run: bool):
         run(
             [
                 "sudo",
-                get_brfs(),
+                config.btrfs.binary,
                 "subvolume",
                 "snapshot",
                 "-r",
                 config.btrfs.source_path,
-                os.path.join(config.btrfs.snapshot_mnt, new_subvol),
+                os.path.join(config.btrfs.root_mnt, new_subvol),
             ],
             dry_run,
         )
@@ -350,8 +354,8 @@ def prune_old_btrfs_snapshots(
     LOGGER.info("Pruning old snapshots")
     # Execute sub-volume deletion commands.
     for dt in sorted(prune_dts):
-        snapshot_path = os.path.join(config.btrfs.snapshot_mnt, snapshots[dt])
-        run(["sudo", get_brfs(), "subvolume", "delete", snapshot_path], dry_run)
+        snapshot_path = os.path.join(config.btrfs.root_mnt, snapshots[dt])
+        run(["sudo", config.btrfs.binary, "subvolume", "delete", snapshot_path], dry_run)
         del snapshots[dt]
 
 
@@ -397,7 +401,7 @@ def main_borg(config: Config, args: argparse.Namespace, snapshots: dict[datetime
     # Backup the selected snapshots to every Borg repository.
     env = config.borg.env
     for repository in config.borg.repositories:
-        if not check_borg_repository(repository, env):
+        if not check_borg_repository(config, repository, env):
             LOGGER.info("Could not access %s", repository)
             continue
         archives = get_borg_archives(config, repository, env)
@@ -409,15 +413,17 @@ def main_borg(config: Config, args: argparse.Namespace, snapshots: dict[datetime
             create_borg_archive(config, args.dry_run, repository, env, subvol)
 
         LOGGER.info("Pruning old archives if any (%s)", repository)
-        removed = prune_old_borg_archives(args.dry_run, repository, env, snapshots, archives)
+        removed = prune_old_borg_archives(
+            config, args.dry_run, repository, env, snapshots, archives
+        )
         if removed:
-            compact_borg_repository(args.dry_run, repository, env)
+            compact_borg_repository(config, args.dry_run, repository, env)
 
 
-def check_borg_repository(repository: str, env: dict[str, str]) -> bool:
+def check_borg_repository(config: Config, repository: str, env: dict[str, str]) -> bool:
     """Get basic info from a borg repository."""
     try:
-        run(["borg", "info", repository], env=os.environ | env)
+        run([config.borg.binary, "info", repository], env=os.environ | env)
     except subprocess.CalledProcessError:
         return False
     return True
@@ -427,7 +433,7 @@ def get_borg_archives(config: Config, repository: str, env: dict[str, str]) -> d
     """Get a list of archives in the Borg repository."""
     LOGGER.info("Getting a list of borg archives (%s)", repository)
     prefix = config.borg.prefix
-    output = run(["borg", "list", repository], env=(os.environ | env), capture=True)
+    output = run([config.borg.binary, "list", repository], env=(os.environ | env), capture=True)
     return parse_archives(output, prefix, config.datetime_format)
 
 
@@ -450,14 +456,17 @@ def create_borg_archive(
     config: Config, dry_run: bool, repository: str, env: dict[str, str], subvol: str
 ):
     """Create a Borg backup from a Btrfs snapshot."""
-    dn_current = os.path.join(config.btrfs.snapshot_mnt, config.btrfs.prefix + "current")
+    dn_current = os.path.join(config.btrfs.root_mnt, config.btrfs.prefix + "current")
     if os.path.isdir(dn_current):
-        run(["umount", dn_current], dry_run, check=False)
+        run(["sudo", "umount", dn_current], dry_run, check=False)
     else:
         LOGGER.info("Creating directory %s", dn_current)
         os.makedirs(dn_current)
 
-    run(["mount", config.btrfs.device, dn_current, "-o", f"subvol={subvol},noatime"], dry_run)
+    run(
+        ["sudo", "mount", config.btrfs.device, dn_current, "-o", f"subvol={subvol},noatime"],
+        dry_run,
+    )
 
     paths = config.borg.paths
     if not dry_run:
@@ -472,7 +481,7 @@ def create_borg_archive(
         timestamp = dt.isoformat()
         run(
             [
-                "borg",
+                config.borg.binary,
                 "create",
                 "--verbose",
                 "--stats",
@@ -490,19 +499,20 @@ def create_borg_archive(
     finally:
         # It may take some time before the disk is no longer considered "in use".
         sleep(1.0)
-        run(["umount", dn_current], dry_run)
+        run(["sudo", "umount", dn_current], dry_run)
         LOGGER.info("Removing %s", dn_current)
         os.rmdir(dn_current)
 
 
 def prune_old_borg_archives(
+    config: Config,
     dry_run: bool,
     repository: str,
     env: dict[str, str],
     snapshots: dict[datetime, str],
     archives: dict[datetime, str],
 ) -> bool:
-    """Delete old Bort archives using the GFS algorithm."""
+    """Delete old Borg archives using the GFS algorithm."""
     LOGGER.info("Removing old borg archives (%s)", repository)
     removed = False
     for dt, archive in sorted(archives.items()):
@@ -510,7 +520,7 @@ def prune_old_borg_archives(
             removed = True
             run(
                 [
-                    "borg",
+                    config.borg.binary,
                     "delete",
                     f"{repository}::{archive}",
                 ],
@@ -520,12 +530,12 @@ def prune_old_borg_archives(
     return removed
 
 
-def compact_borg_repository(dry_run: bool, repository: str, env: dict[str, str]):
+def compact_borg_repository(config: Config, dry_run: bool, repository: str, env: dict[str, str]):
     """Reduce the space occupied by the Borg archive by removing unused data."""
     LOGGER.info("Compacting repository after removing old archives (%s)", repository)
     run(
         [
-            "borg",
+            config.borg.binary,
             "compact",
             repository,
         ],
@@ -560,6 +570,7 @@ def run(cmd: list[str], dry_run: bool = False, capture: bool = False, **kwargs) 
         kwargs["universal_newlines"] = True
     if capture:
         kwargs["capture_output"] = True
+    kwargs["check"] = True
     cp = subprocess.run(cmd, **kwargs)  # noqa: PLW1510
     return cp.stdout or ""
 

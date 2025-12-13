@@ -26,7 +26,7 @@ jobs:
   tests:
     strategy:
       matrix:
-        python-version: ['3.11', '3.13']
+        python-version: ['3.11', '3.14']
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

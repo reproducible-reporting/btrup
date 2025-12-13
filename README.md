@@ -46,18 +46,18 @@ time_origin = '2024_01_01__03_55_00'
 # The first bin starts at time_origin in every [[keeps]] section.
 # Within one bin, only the oldest snapshot (and backup) is retained.
 # When there are multiple [[keeps]] sections,
-# a spanshot is kept if it matches the criteria of
+# a snapshot is kept if it matches the criteria of
 # at least one of the [[keeps]] sections.
 
 # With the `time_origin` in this example,
 # the daily backup corresponds to the snapshot made at 4am
 
-# The 12 most recent 10-minutely snapshots are retained, not backed up.
+# The 12 most recent 10-minute snapshots are retained, not backed up.
 [[keeps]]
 interval = "10 minutes"
 amount = 12
 
-# The 28 most recent hourly snapshot are retained, not backed up.
+# The 48 most recent hourly snapshot are retained, not backed up.
 [[keeps]]
 interval = "hour"
 amount = 48
@@ -75,16 +75,19 @@ interval = "7 days"
 amount = 52
 
 [btrfs]
-# Mount point of the Btrfs volume to take snapshot from, must be mounted.
+# Mount point of the Btrfs volume to take a snapshot from, must be mounted.
 source_path = "/home"
 # Prefix for btrfs snapshot volumes, timestamp is appended.
 prefix = "snapshots/home."
-# Path where the snapshot volumes will be mounted.
-snapshot_mnt = "/mnt"
-# The snapshot path will be "{snapshot_mnt}/{prefix}{datetime}".
+# Path where the root volume of the Btrfs file system is mounted.
+root_mnt = "/mnt"
+# The full snapshot path will be "{root_mnt}/{prefix}{datetime}",
+# of which "{prefix}{datetime}" is the snapshot subvolume name.
 # The snapshots must be stored in the same Btrfs file system as the source.
-# In this example, `/mn/snapshots` must be a Btrfs volume
-# in the same filesystem as that of the `/home` volume,
+
+# Path to the btrfs binary, optional, e.g. to use a non-standard location.
+# Absolute path is recommended for security reasons.
+binary = "/usr/bin/btrfs"
 
 # Commands to be executed before making a snapshot: cleanups, mysqldump, etc.
 pre = []
@@ -93,6 +96,10 @@ post = []
 # Note that each command is a string that is executed without a subshell.
 
 [borg]
+# Path to the borg binary, optional, e.g. to use a non-standard location.
+# Absolute path is recommended for security reasons.
+binary = "/usr/bin/borg"
+
 # Prefix used for Borg archives
 prefix = "home."
 # List of borg repositories
@@ -177,14 +184,25 @@ In addition, you need to configure `sudoers` to allow the backup user to manage 
 This can be accomplished with the following lines in your
 [`sudoers`](https://www.man7.org/linux/man-pages/man5/sudoers.5.html) configuration:
 
-```text
-backup ALL=(ALL) NOPASSWD: /usr/sbin/btrfs subvolume snapshot -r /home *
-backup ALL=(ALL) NOPASSWD: /usr/sbin/btrfs subvolume list /home
-backup ALL=(ALL) NOPASSWD: /usr/sbin/btrfs subvolume delete /mnt/snapshots/home.*
+```sh
+# Allow the backup user to manage Btrfs subvolumes without password.
+# Note that you need to adapt the paths to your configuration.
+backup ALL=(ALL) NOPASSWD: /usr/bin/btrfs subvolume snapshot -r /home.*
+backup ALL=(ALL) NOPASSWD: /usr/bin/btrfs subvolume list /home
+backup ALL=(ALL) NOPASSWD: /usr/bin/btrfs subvolume delete /mnt/snapshots/home.*
+
+# If you also use the Borg backup functionality of BtrUp,
+# allow the backup user to mount and unmount the current snapshot subvolume without password.
+# Note that you need to adapt the device path (/dev/sdXX)
+# and mount point (/mnt/snapshots/current) to your configuration.
+backup ALL=(ALL) NOPASSWD: /usr/bin/mount /dev/sdXX /mnt/snapshots/current -o subvol=*,noatime
+backup ALL=(ALL) NOPASSWD: /usr/bin/umount /mnt/snapshots/current
 ```
 
 Make sure you make these commands match your config file and are specific as possible.
 By making them more specific, you will reduce the risk of accidental wrong subvolume operations.
+For example, the path of the `btrfs` binary may be different on your system
+and must match the path in the Btrup config file.
 Also ensure that you use `visudo` to edit the `sudoers` file,
 to avoid that mistakes in your `sudoers` file will lock you out of the root account.
 
@@ -218,6 +236,6 @@ journalctl -efu btrup.service
 BtrUp is written by Toon Verstraelen.
 Most of the magic in BtrUp is provided by two great tools:
 
-- BtrUp assume your data resides in a [Btrfs](https://docs.kernel.org/filesystems/btrfs.html)
+- BtrUp assumes your data resides in a [Btrfs](https://docs.kernel.org/filesystems/btrfs.html)
   file system volume, which is used by BtrUp to create snapshots.
 - Backups of the snapshots are made with [Borg](https://www.borgbackup.org/).

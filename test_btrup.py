@@ -83,6 +83,15 @@ def test_select_relevant():
     assert select_relevant(dts, datetime(2022, 1, 31, 12), timedelta(days=3), 5) == keep
 
 
+def test_select_relevant_zero():
+    dts = [
+        datetime(2022, 1, 28, 0, 0, 0),
+        datetime(2022, 1, 31, 0, 0, 0),
+        datetime(2022, 2, 1, 0, 0, 0),
+    ]
+    assert select_relevant(dts, datetime(2022, 1, 31, 12), timedelta(days=3), 0) == []
+
+
 def test_grandfatherson_empty():
     origin = datetime(2022, 5, 5, 0, 0, 0)
     dts = [
@@ -299,7 +308,7 @@ amount = 52
 [btrfs]
 source_path = "/home"
 prefix = "snapshots/home."
-snapshot_mnt = "/mnt"
+root_mnt = "/mnt"
 pre = []
 post = []
 
@@ -320,7 +329,7 @@ def test_load_config1():
     assert config.time_origin == datetime(2024, 5, 1, 7, 15)
     assert config.btrfs.source_path == "/home"
     assert config.btrfs.prefix == "snapshots/home."
-    assert config.btrfs.snapshot_mnt == "/mnt"
+    assert config.btrfs.root_mnt == "/mnt"
     assert config.borg.prefix == "home."
     assert config.borg.paths == ["alice", "bob"]
     assert config.borg.repositories == ["/mnt/bigdisk", "offsite:/mnt/storage"]
@@ -341,7 +350,7 @@ amount = 48
 [btrfs]
 source_path = "/"
 prefix = "snapshots/foo."
-snapshot_mnt = "/data"
+root_mnt = "/data"
 """
 
 
@@ -352,7 +361,7 @@ def test_config2():
     assert config.time_origin == datetime(2024, 1, 1, 3, 55, 0)
     assert config.btrfs.source_path == "/"
     assert config.btrfs.prefix == "snapshots/foo."
-    assert config.btrfs.snapshot_mnt == "/data"
+    assert config.btrfs.root_mnt == "/data"
     assert config.borg.prefix == "backup."
     assert config.borg.paths == []
     assert config.borg.repositories == []
