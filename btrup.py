@@ -311,7 +311,7 @@ def main_btrfs(config: Config, args: argparse.Namespace) -> dict[datetime, str]:
         if new_dt in keep_dts:
             try:
                 create_btrfs_snapshot(config, new_subvol, args.dry_run)
-            except:
+            except Exception:
                 del snapshots[new_dt]
                 raise
         else:
@@ -458,7 +458,7 @@ def create_borg_archive(
     """Create a Borg backup from a Btrfs snapshot."""
     dn_current = os.path.join(config.btrfs.root_mnt, config.btrfs.prefix + "current")
     if os.path.isdir(dn_current):
-        run(["sudo", "umount", dn_current], dry_run, check=False)
+        run(["sudo", "umount", dn_current], dry_run)
     else:
         LOGGER.info("Creating directory %s", dn_current)
         os.makedirs(dn_current)
@@ -551,7 +551,9 @@ def parse_suffix(name: str, prefix: str, datetime_format: str) -> datetime:
     return datetime.strptime(name[len(prefix) :], datetime_format)
 
 
-def run(cmd: list[str], dry_run: bool = False, capture: bool = False, **kwargs) -> str:
+def run(
+    cmd: list[str], dry_run: bool = False, capture: bool = False, check: bool = True, **kwargs
+) -> str:
     """Print and run a command."""
     cmd_info = " ".join(cmd)
     if "cwd" in kwargs:
@@ -570,8 +572,7 @@ def run(cmd: list[str], dry_run: bool = False, capture: bool = False, **kwargs) 
         kwargs["universal_newlines"] = True
     if capture:
         kwargs["capture_output"] = True
-    kwargs["check"] = True
-    cp = subprocess.run(cmd, **kwargs)  # noqa: PLW1510
+    cp = subprocess.run(cmd, check=check, **kwargs)
     return cp.stdout or ""
 
 
